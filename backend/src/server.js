@@ -21,11 +21,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 
 const io = new Server(httpServer, { cors: { origin: '*', methods: ['GET', 'POST'] } });
-const onlineUsers = new Map();
-
 io.on('connection', (socket) => {
   socket.on('register', (userId) => {
-    onlineUsers.set(userId, socket.id);
+    socket.join(userId);
   });
 
   socket.on('message:send', async (payload) => {
@@ -38,10 +36,10 @@ io.on('connection', (socket) => {
 
     socket.emit('message:status', { tempId: payload.tempId, messageId: msg._id, status: 'sent' });
 
-    const receiverSocketId = onlineUsers.get(payload.receiver);
-    if (receiverSocketId) {
+    const receiverRoom = io.sockets.adapter.rooms.get(payload.receiver);
+    if (receiverRoom && receiverRoom.size > 0) {
       await Chat.findByIdAndUpdate(msg._id, { status: 'delivered' });
-      io.to(receiverSocketId).emit('message:new', { ...msg.toObject(), status: 'delivered' });
+      io.to(payload.receiver).emit('message:new', { ...msg.toObject(), status: 'delivered' });
       socket.emit('message:delivered', { messageId: msg._id, status: 'delivered' });
     }
   });
@@ -49,14 +47,7 @@ io.on('connection', (socket) => {
   socket.on('message:read', async ({ messageId }) => {
     await Chat.findByIdAndUpdate(messageId, { status: 'read' });
     const message = await Chat.findById(messageId);
-    const senderSocketId = onlineUsers.get(message.sender.toString());
-    if (senderSocketId) io.to(senderSocketId).emit('message:read:update', { messageId, status: 'read' });
-  });
-
-  socket.on('disconnect', () => {
-    for (const [uid, sid] of onlineUsers.entries()) {
-      if (sid === socket.id) onlineUsers.delete(uid);
-    }
+    io.to(message.sender.toString()).emit('message:read:update', { messageId, status: 'read' });
   });
 });
 

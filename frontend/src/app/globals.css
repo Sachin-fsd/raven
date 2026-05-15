@@ -1,6 +1,14 @@
 body { margin: 0; font-family: Arial, sans-serif; background: #e5ddd5; }
-.auth { max-width: 360px; margin: 12vh auto; background: white; padding: 24px; border-radius: 12px; display: grid; gap: 10px; }
-.wa { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+.loginPage { min-height: 100vh; display: grid; place-items: center; background: linear-gradient(145deg, #0d7f68, #25d366); }
+.auth { width: 360px; background: white; padding: 24px; border-radius: 12px; display: grid; gap: 10px; }
+.auth h1 { margin: 0; color: #128c7e; }
+.auth h2 { margin: 0 0 8px; font-size: 18px; }
+.error { color: #d93025; margin: 0; }
+.switch { cursor: pointer; color: #0d7f68; margin: 0; }
+.wa { display: grid; grid-template-columns: 320px 1fr; grid-template-rows: 60px 1fr; height: 100vh; }
+.topbar { grid-column: 1 / -1; background: #0b141a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+.topRight { display: flex; align-items: center; gap: 10px; }
+.dp { width: 34px; height: 34px; border-radius: 50%; background: #25d366; color: #0b141a; display: grid; place-items: center; font-weight: 700; }
 aside { background: #fff; border-right: 1px solid #ddd; padding: 12px; overflow-y: auto; }
 .person { padding: 10px; border-radius: 8px; cursor: pointer; }
 .person:hover { background: #f0f2f5; }
