@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Chat from '../models/Chat.js';
 import { auth } from '../middleware/auth.js';
@@ -17,13 +18,13 @@ router.get('/search', auth, async (req, res) => {
 });
 
 router.get('/recent', auth, async (req, res) => {
-  const userId = req.user.id;
+  const userId = new mongoose.Types.ObjectId(req.user.id);
   const recent = await Chat.aggregate([
     { $match: { $or: [{ sender: userId }, { receiver: userId }] } },
     {
       $project: {
         otherUser: {
-          $cond: [{ $eq: ['$sender', { $toObjectId: userId }] }, '$receiver', '$sender']
+          $cond: [{ $eq: ['$sender', userId] }, '$receiver', '$sender']
         },
         createdAt: 1
       }
