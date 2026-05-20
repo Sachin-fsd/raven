@@ -22,6 +22,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 
 const io = new Server(httpServer, { cors: { origin: '*', methods: ['GET', 'POST'] } });
+const activeChatBySocket = new Map();
 
 io.use((socket, next) => {
   try {
@@ -40,6 +41,15 @@ io.on('connection', (socket) => {
     socket.join(socket.user.id);
   });
 
+  socket.on('chat:active', ({ otherUserId }) => {
+    if (!otherUserId) return;
+    activeChatBySocket.set(socket.id, otherUserId);
+  });
+
+  socket.on('chat:inactive', () => {
+    activeChatBySocket.delete(socket.id);
+  });
+
   socket.on('message:send', async (payload) => {
     if (!payload?.receiver || !payload?.text?.trim()) return;
 
@@ -52,11 +62,21 @@ io.on('connection', (socket) => {
 
     socket.emit('message:status', { tempId: payload.tempId, messageId: msg._id, status: 'sent' });
 
-    const receiverRoom = io.sockets.adapter.rooms.get(payload.receiver);
-    if (receiverRoom && receiverRoom.size > 0) {
+    const receiverSockets = await io.in(payload.receiver).fetchSockets();
+    const isOnline = receiverSockets.length > 0;
+
+    if (isOnline) {
       await Chat.findByIdAndUpdate(msg._id, { status: 'delivered' });
+      msg.status = 'delivered';
       io.to(payload.receiver).emit('message:new', { ...msg.toObject(), status: 'delivered' });
       socket.emit('message:delivered', { messageId: msg._id, status: 'delivered' });
+
+      const readNow = receiverSockets.some((s) => activeChatBySocket.get(s.id) === socket.user.id);
+      if (readNow) {
+        await Chat.findByIdAndUpdate(msg._id, { status: 'read' });
+        io.to(payload.receiver).emit('message:read:update', { messageId: msg._id, status: 'read' });
+        io.to(socket.user.id).emit('message:read:update', { messageId: msg._id, status: 'read' });
+      }
     }
   });
 
@@ -64,6 +84,11 @@ io.on('connection', (socket) => {
     await Chat.findByIdAndUpdate(messageId, { status: 'read' });
     const message = await Chat.findById(messageId);
     io.to(message.sender.toString()).emit('message:read:update', { messageId, status: 'read' });
+    io.to(message.receiver.toString()).emit('message:read:update', { messageId, status: 'read' });
+  });
+
+  socket.on('disconnect', () => {
+    activeChatBySocket.delete(socket.id);
   });
 });
 

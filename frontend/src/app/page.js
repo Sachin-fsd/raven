@@ -44,6 +44,7 @@ export default function ChatPage() {
       loadRecent();
       if (selected && [msg.sender, msg.receiver].includes(selected._id)) {
         setMessages((m) => [...m, msg]);
+        if (msg.sender === selected._id && msg._id) socket.emit('message:read', { messageId: msg._id });
       }
     });
 
@@ -61,6 +62,7 @@ export default function ChatPage() {
     });
 
     return () => {
+      socket.emit('chat:inactive');
       socket.off('connect');
       socket.off('message:new');
       socket.off('message:status');
@@ -74,7 +76,12 @@ export default function ChatPage() {
 
   const openChat = async (u) => {
     setSelected(u);
-    setMessages(await api(`/api/chats/${u._id}`));
+    socket.emit('chat:active', { otherUserId: u._id });
+    const chatMessages = await api(`/api/chats/${u._id}`);
+    setMessages(chatMessages);
+    chatMessages
+      .filter((m) => m.sender === u._id && m.status !== 'read' && m._id)
+      .forEach((m) => socket.emit('message:read', { messageId: m._id }));
   };
 
   const send = () => {
